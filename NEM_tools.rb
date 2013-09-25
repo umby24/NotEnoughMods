@@ -199,7 +199,7 @@ def setlist()
 		sendmessage($host[0, $host.index("!")] + ": see #{$prefix}help nem for usage.")
 		return
 	end
-	colorblue = 2.chr + 3.chr +"12"
+	colorblue = 2.chr + 3.chr + "12"
     color = 3.chr + 2.chr
 	
 	$nemVersion = $args[2]
@@ -209,7 +209,7 @@ $nemVersion = getLatestVersion()
 $nemVersions = getVersions()
 
 regLib("json")
-regLib("CGI")
+regLib("cgi")
 regLib("open-uri")
 regCmd("nem","command_nem")
 regGCmd("nem","command_nem")
