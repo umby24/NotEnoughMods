@@ -1,19 +1,10 @@
-def getLatestVersion()
-	begin
-		nemfeed = open("http://bot.notenoughmods.com/?json")
-		result = nemfeed.read
-		nemfeed.close()
-		parsed = JSON.parse(result)
-		return parsed[parsed.length - 1]
-	rescue Exception => e
-		puts "Failed to get NEM versions, falling back to hard-coded"
-		err_log("NEMP: " + e.message)
-		return "1.6.4"
-	end
-end
+regLib("json")
+regLib("cgi")
+regLib("open-uri")
+
 def getVersions()
 	begin
-		nemfeed = open("http://bot.notenoughmods.com/?json")
+		nemfeed = open("http://bot.notenoughmods.com/?json", "User-Agent" => "Rubybot/4.3 (+http://umby.d3s.co/)")
 		result = nemfeed.read
 		nemfeed.close()
 		parsed = JSON.parse(result)
@@ -48,7 +39,7 @@ def list()
 		version = $nemVersion
 	end
 	begin
-		nemfeed = open("http://bot.notenoughmods.com/" + CGI.escape(version) + ".json")
+		nemfeed = open("http://bot.notenoughmods.com/" + CGI.escape(version) + ".json", "User-Agent" => "Rubybot/4.3 (+http://umby.d3s.co/)")
 		result = nemfeed.read
 		nemfeed.close()
 		jsonres = JSON.parse(result)
@@ -122,20 +113,20 @@ def multilist()
 		versions = $nemVersions
 		
 		versions.each {|item|
-			nemfeed = open("http://bot.notenoughmods.com/" + CGI.escape(item) + ".json")
+			nemfeed = open("http://bot.notenoughmods.com/" + CGI.escape(item) + ".json", "User-Agent" => "Rubybot/4.3 (+http://umby.d3s.co/)")
 			result = nemfeed.read()
 			nemfeed.close()
 			jsonres[item] = JSON.parse(result)
 			
 			jsonres[item].each_index {|index|
 				mod = jsonres[item][index]
-				if mod["name"].downcase.include?($args[2].downcase)
+				if mod["name"] == $args[2].downcase
 					results[item] = [index]
 					break
 				else
 					aliases = mod["aliases"].split(" ")
 					aliases.each {|alia|
-						if alia.downcase.include?($args[2].downcase)
+						if alia.downcase == $args[2].downcase
 							results[item] = [index]
 							break
 						end
@@ -205,11 +196,8 @@ def setlist()
 	$nemVersion = $args[2]
 	sendmessage("Switched list to: " + colorblue + $args[2] + color)
 end
-$nemVersion = getLatestVersion()
 $nemVersions = getVersions()
+$nemVersion = $nemVersions[$nemVersions.length - 1]
 
-regLib("json")
-regLib("cgi")
-regLib("open-uri")
 regCmd("nem","command_nem")
 regGCmd("nem","command_nem")
