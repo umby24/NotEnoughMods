@@ -1,0 +1,6 @@
+]nem [option] [args]
+-- options are list, multilist, about, and setlist
+-- list [search] [version] -- Searches NEM database for [search] and returns all results.
+-- about -- Shows info about this plugin.
+-- setlist [version] -- Sets default version to [version] for other commands.
+-- multilist [search] -- Searches NEM database for [search] and returns results for all supported verisions of minecraft.
