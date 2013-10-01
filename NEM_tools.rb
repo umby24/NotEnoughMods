@@ -60,10 +60,13 @@ def list()
 			end
 			
 		}
+		darkgreen = "03"
+		red = "05"
+		purple = "06"
+		pink = "13"
 		orange = "7"
 		blue = "12"
 		gray = "14"
-		lightgray = "15"
 		bold = 2.chr
 		color = 3.chr
 		count = results.length
@@ -84,16 +87,21 @@ def list()
 			talias = color
 			
 			if jstring["aliases"] != ""
-				talias = color + "(" + color + gray + jstring["aliases"] + color + ") "
+				talias = color + "(" + color + pink + jstring["aliases"].gsub(" ", color + ", " + color + pink) + color + ") "
 			end
 			
 			comment = color
 			
 			if jstring["comment"] != ""
-				comment = color + "[" + color + gray + jstring["comment"] + color + "] "
+				comment = color + "(" + color + gray + jstring["comment"] + color + ") "
 			end
-			
-			sendmessage(color + gray + jstring["name"] + " " + talias + color + lightgray + jstring["version"] + " " + comment + color + orange + jstring["shorturl"] + color)
+			dev = color
+			begin
+				dev = color + " (" + color + gray + "dev" + color + ": " + color + red + jsonres["dev"] + color + ")"
+			rescue Exception => e
+				
+			end
+			sendmessage(color + purple + jstring["name"] + " " + talias + color + darkgreen + jstring["version"] + dev + " " + comment + color + orange + jstring["shorturl"] + color)
 		}
 		
 	rescue Exception => e
@@ -135,7 +143,9 @@ def multilist()
 			}			
 		}
 		
-		red = "04"
+		pink = "13"
+		red = "05"
+		darkgreen = "03"
 		purple = "06"
 		orange = "07"
 		blue = "12"
@@ -159,7 +169,7 @@ def multilist()
 		results.each_key {|line|
 			talias = color
 			if jsonres[line][results[line][0]]["aliases"] != ""
-				talias = color + "(" + color + gray + jsonres[line][results[line][0]]["aliases"] + color + ") "
+				talias = color + "(" + color + pink + jsonres[line][results[line][0]]["aliases"].gsub(" ", color + ", " + color + pink) + color + ") "
 			end
 			comment = color
 			if jsonres[line][results[line][0]]["comment"] != ""
@@ -168,12 +178,12 @@ def multilist()
 			dev = color
 			begin
 				if jsonres[line][results[line][0]]["dev"] != ""
-					dev = color+"("+color+red+"dev: "+jsonres[line][results[line][0]]["dev"]+color+")"
+					dev = color+"("+color+gray+"dev: "+ color + red + jsonres[line][results[line][0]]["dev"]+color+")"
 				end
 			rescue Exception => e
 				# Not going to add an err_log statement here to keep spam out of it.
 			end
-			sendmessage(color+purple+line+color+": "+color+gray+jsonres[line][results[line][0]]["name"]+" "+talias+color+lightgray+jsonres[line][results[line][0]]["version"]+dev+" "+comment+color+orange+jsonres[line][results[line][0]]["shorturl"]+color)
+			sendmessage(bold +color+blue+line+color+bold + ": "+color+purple+jsonres[line][results[line][0]]["name"]+" "+talias+color+darkgreen+jsonres[line][results[line][0]]["version"]+dev+" "+comment+color+orange+jsonres[line][results[line][0]]["shorturl"]+color)
 		}
 		
 	rescue Exception => e
