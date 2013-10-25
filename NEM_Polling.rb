@@ -1,7 +1,7 @@
 regLib("json")
 regLib("cgi")
 regLib("open-uri")
-
+regLib("openssl")
 $nemVersions = []
 $nemVersion = ""
 
@@ -14,7 +14,8 @@ $nempTimer = 300
 ##################################
 
 def fetch_page(url, decompress=true, timeout=10)
-	response = open(url, {"User-Agent" => "Rubybot/4.3 (+http://umby.d3s.co/)", :read_timeout => 10})
+	response = open(url, {"User-Agent" => "Rubybot/4.3 (+http://umby.d3s.co/)", :read_timeout => 10, :ssl_verify_mode=>OpenSSL::SSL::VERIFY_NONE})
+	
 	if response.meta["content-encoding"] == "gzip" and decompress
 		puts "GZIP"
 		data = ""
@@ -76,12 +77,12 @@ def initiateVersions()
 	end
 end
 
-def checkJenkins(mod)
+def CheckJenkins(mod)
 	result = fetch_page($mods[mod]["jenkins"]["url"])
 	jsonres = JSON.parse(result)
 	filename = jsonres["artifacts"][$mods[mod]["jenkins"]["item"]]["fileName"]
 	match = /#{$mods[mod]["jenkins"]["regex"]}/.match(filename)
-	output = match
+	output = Hash[match.names.zip(match.captures)]
 	
 	begin
 		output["change"] = jsonres["changeSet"]["items"][0]["comment"]
@@ -91,7 +92,7 @@ def checkJenkins(mod)
 	return output
 end
 
-def checkMCForge(mod)
+def CheckMCForge(mod)
 	result = fetch_page("http://files.minecraftforge.net/" + $mods[mod]["mcforge"]["name"] + "/json")
 	jsonres = JSON.parse(result)
 	promotionArray = jsonres["promotions"]
@@ -136,14 +137,14 @@ def checkMCForge(mod)
 	
 end
 
-def checkChickenBones(mod)
+def CheckChickenBones(mod)
 	result = fetch_page("http://www.chickenbones.craftsaddle.org/Files/New_Versions/version.php?file="+mod+"&version="+$mods[mod]["mc"])
 	if result[0, 5] == "Ret: "
 		return {"version" => result[5, result.length - 5]}
 	end
 end
 
-def checkmDiyo(mod)
+def CheckmDiyo(mod)
 	result = fetch_page("http://tanis.sunstrike.io/"+$mods[mod]["mDiyo"]["location"])
 	lines = result.split()
 	result = ""
@@ -155,11 +156,11 @@ def checkmDiyo(mod)
 	end
 	
 	match = /#{$mods[mod]["mDiyo"]["regex"]}/.match(result)
-	output = match
+	output = Hash[match.names.zip(match.captures)]
 	return output
 end
 
-def checkAE(mod)
+def CheckAE(mod)
 	result = fetch_page("http://ae-mod.info/releases")
 	jsonres = JSON.parse(result)
 	jsonres = jsonres.sort_by{|k| k["Released"]}
@@ -179,17 +180,20 @@ def checkAE(mod)
 	return {"version" => relVersion, "dev" => devVersion, "mc" => devMC}
 end
 
-def checkDropbox(mod)
+def CheckDropBox(mod)
 	result = fetch_page($mods[mod]["html"]["url"])
 	match = nil
 	
-	match = result.scan(/#{$mods[mod]["html"]["regex"]}/) {
-		next
+	result.scan(/#{$mods[mod]["html"]["regex"]}/) {|b|
+		match = b
 	}
 	
-	if match
-		if match.include?("mc") == false
-			match["mc"] = $mods[mod]["mc"]
+	
+	if match != nil
+		if $nemVersions.include?(match[0]) == false
+			match = {"mc" => $mods[mod]["mc"], "version"=>match[0]}
+		else
+			match = {"mc" => match[0], "version"=>match[1]}
 		end
 		
 		return match
@@ -198,20 +202,22 @@ def checkDropbox(mod)
 	end
 end
 
-def checkHTML(mod)
+def CheckHTML(mod)
 	result = fetch_page($mods[mod]["html"]["url"])
 	output = Hash.new
 	
 	for line in result.split("\n")
 		match = /#{$mods[mod]["html"]["regex"]}/.match(line)
-		if match
-			output = match
+		
+		if match != nil
+			output = Hash[match.names.zip(match.captures)]
 		end
 	end
-	return match
+	
+	return output
 end
 
-def checkSpaceChase(mod)
+def CheckSpacechase(mod)
 	result = fetch_page("http://spacechase0.com/wp-content/plugins/mc-mod-manager/nem.php?mc=6")
 	
 	for line in result.split("\n")
@@ -229,24 +235,24 @@ def checkMod(mod)
         status = [false, false, false]
         output = send($mods[mod]["function"], mod)
         
-        if output.include?("dev")
+        if output.has_key?("dev")
 			if $mods[mod]["dev"] != output["dev"]
 				$mods[mod]["dev"] = output["dev"]
 				status[0] = true
 				status[1] = true
 			end
 		end
-		if output.include?("version")
+		if output.has_key?("version")
 			if $mods[mod]["version"] != output["version"]
 				$mods[mod]["version"] = output["version"]
 				status[0] = true
 				status[2] = true
 			end
 		end
-		if output.include?("mc")
+		if output.has_key?("mc")
 			$mods[mod]["mc"] = output["mc"]
 		end
-		if output.include?("change")
+		if output.has_key?("change")
 			$mods[mod]["change"] = output["change"]
 		end
 		
@@ -289,28 +295,29 @@ def running()
 end
 
 def PollingThread()
-	if $newMods
+	if $newMods == true
 		$mods = newMods
 		initiateVersions()
 	end
 	tempList = {}
 	
 	$mods.each {|mod, info|
-		if info.include?("name")
+		
+		if info.has_key?("name")
 			real_name = info["name"]
 		else
 			real_name = mod
 		end
 		
-		if mods[mod]["active"]
+		if $mods[mod]["active"]
 			result = checkMod(mod)
 			
 			if result[0]
 				if tempList.has_key?($mods[mod]["mc"])
-					tempList[$mods[mod]["mc"]] = tempList[$mods[mod]["mc"]] + [real_name, result[1, result.length - 1]]
+					tempList[$mods[mod]["mc"]] = tempList[$mods[mod]["mc"]] << [real_name, result[1, result.length - 1]]
 				else
 					tempVersion = [real_name, result[1, result.length - 1]]
-					tempList[$mods[mod]["mc"]] = tempVersion
+					tempList[$mods[mod]["mc"]] = [tempVersion]
 				end
 			end
 		end
@@ -321,26 +328,22 @@ def PollingThread()
 end
 
 def MainTimerEvent(channels)
-	puts "Timer Triggered."
 	begin	
 		begin
 			tempList = PollingThread()
-			puts "Got List."
 			MicroTimerEvent(channels, tempList)
-			puts "micro Timer complete."
 		rescue
 			$nempRunning = false
 			puts "Temp Error: #{e.message}"
 		end
-		puts("Sleeping...")
 		sleep($nempTimer)
 	end while ($nempRunning == true)
 end
 
 def MicroTimerEvent(channels, tempList)
 	for channel in channels
-		for version in tempList
-			for item in tempList[version]
+		for version, values in tempList
+			tempList[version].each {|item|
 				mod = item[0]
 				flags = item[1]
 				
@@ -351,13 +354,12 @@ def MicroTimerEvent(channels, tempList)
 				if $mods[mod]["version"] != "NOT_USED" and flags[1]
 					pm("!lmod " + version + " " + mod + " " + $mods[mod]["version"], channel)
 				end
-				#end
-				#
+
 				if $mods[mod]["change"] != "NOT_USED"
 					pm(" * " + $mods[mod]["change"], channel)
 				end
 				
-			end
+			}
 		end
 	end
 end
@@ -365,37 +367,37 @@ end
 
 def poll()
 	begin
-	if $args.length != 4
-		sendmessage($name + ": Insufficient amount of parameters provided.")
-	else
-		setting = false
-		
-		if $mods.has_key?($args[1])
-			if $args[2].downcase == "true" or $args[2].downcase == "yes" or $args[2].downcase == "on"
-				setting = true
-			elsif $args[2].downcase == "false" or $args[2].downcase == "no" or $args[2].downcase == "off"
-				setting = false
-			end
+		if $args.length != 4
+			sendmessage($name + ": Insufficient amount of parameters provided.")
+		else
+			setting = false
 			
-			$mods[$args[1]]["active"] = setting
-			sendmessage($name + ": " + $args[1] + "'s poll status is now " + setting.to_s)
-		elsif $args[1].downcase == "all"
-			if $args[2].downcase == "true" or $args[2].downcase == "yes" or $args[2].downcase == "on"
-				setting = true
-			elsif $args[2].downcase == "false" or $args[2].downcase == "no" or $args[2].downcase == "off"
-				setting = false
+			if $mods.has_key?($args[2])
+				if $args[3].downcase == "true" or $args[3].downcase == "yes" or $args[3].downcase == "on"
+					setting = true
+				elsif $args[3].downcase == "false" or $args[3].downcase == "no" or $args[3].downcase == "off"
+					setting = false
+				end
+				
+				$mods[$args[2]]["active"] = setting
+				sendmessage($name + ": " + $args[2] + "'s poll status is now " + setting.to_s)
+			elsif $args[2].downcase == "all"
+				if $args[3].downcase == "true" or $args[3].downcase == "yes" or $args[3].downcase == "on"
+					setting = true
+				elsif $args[3].downcase == "false" or $args[3].downcase == "no" or $args[3].downcase == "off"
+					setting = false
+				end
+				
+				for mod, key in $mods
+					$mods[mod]["active"] = setting
+				end
+				
+				sendmessage($name + ": All mods are now set to " + setting.to_s)
 			end
-			
-			for mod, key in $mods
-				$mods[mod]["active"] = setting
-			end
-			
-			sendmessage($name + ": All mods are now set to " + setting.to_s)
 		end
+	rescue Exception => e
+		err_log(e.message)
 	end
-rescue Exception => e
-	err_log(e.message)
-end
 end
 
 def command_nemp()
@@ -456,7 +458,7 @@ end
 
 def nemp_list()
 	dest = $name
-	if $args.length > 1 and $args[1] == "broadcast"
+	if $args.length > 2 and $args[2] == "broadcast"
 		dest = $current
 	end
 	darkgreen = "03"
@@ -467,7 +469,7 @@ def nemp_list()
     tempList = {}
     
     for key, info in $mods
-		real_name = info["name"]
+		real_name = info.fetch("name", key)
 		if $mods[key]["active"]
 			relType = ""
 			mcver = $mods[key]["mc"]
@@ -487,8 +489,8 @@ def nemp_list()
 		end
 	end
     
-    for mcver in tempList
-		sendmessage("Mods checked for " + color + blue + bold + mcver + color + bold + ": " + tempList[mcver].join(", "))
+    for mcver, value in tempList
+		pm("Mods checked for " + color + blue + bold + mcver + color + bold + ": " + tempList[mcver].join(", "), dest)
 	end
 end
 
@@ -499,21 +501,19 @@ def nemp_reload()
 	
 	sendmessage("Reloaded the NEMP Database.")
 end
-
 def test_parser()
-	if $args.length > 0
+	if $args.length > 1
 		begin
-			result = send($mods[$args[1]]["function"], $args[1])
-			puts(result)
+			result = send($mods[$args[2]]["function"], $args[2])
 			
 			if result.has_key?("mc")
 				sendmessage("!setlist " + result["mc"])
 			end
 			if result.has_key?("version")
-				sendmessage("!mod " + $args[1] + " " + result["version"])
+				sendmessage("!mod " + $args[2] + " " + result["version"])
 			end
 			if result.has_key?("dev")
-				sendmessage("!dev " + $args[1] + " " + result["dev"])
+				sendmessage("!dev " + $args[2] + " " + result["dev"])
 			end
 			if result.has_key?("change")
 				sendmessage(" * " + result["change"])
@@ -521,7 +521,8 @@ def test_parser()
 			
 		rescue Exception => e
 			sendmessage($name + ": " + e.message)
-			sendmessage($args[1] + " failed to be polled.")
+			sendmessage($args[2] + " failed to be polled.")
+			puts e.backtrace
 		end
 	end
 	
@@ -543,3 +544,8 @@ regGCmd("nemp", "command_nemp")
 regHelp("nemp", "running",["=nemp running <true/false>", "Enables or Disables the polling of latest builds."])
 regHelp("nemp", "poll", ["=nemp poll <mod> <true/false>", "Enables or Disables the polling of <mod>."])
 regHelp("nemp", "list",  ["=nemp list", "Lists the mods that NotEnoughModPolling checks"])
+regHelp("nemp", "about", ["=nemp about", "Shows some info about this plugin."])
+regHelp("nemp", "setversion", ["=nemp setversion <version>", "Sets the version to <version> for polling to assume."])
+regHelp("nemp", "getversion", ["=nemp getversion", "gets the version for polling to assume."])
+regHelp("nemp", "refresh", ["=nemp refresh", "Queries NEM to get the \"latest\" versions"])
+regHelp("nemp", "testparse", ["=nemp testparse <mod>", "Tests the parser for <mod> and outputs the contents to IRC"])
