@@ -348,7 +348,7 @@ def MicroTimerEvent(channels, tempList)
 				flags = item[1]
 				
 				if $mods[mod]["dev"] != "NOT_USED" and flags[0]
-					pm("!ldev" + version + " " + mod + " " + $mods[mod]["dev"], channel)
+					pm("!ldev " + version + " " + mod + " " + $mods[mod]["dev"], channel)
 				end
 				
 				if $mods[mod]["version"] != "NOT_USED" and flags[1]
@@ -488,9 +488,11 @@ def nemp_list()
 			tempList[mcver] = tempList[mcver] + [real_name + relType]
 		end
 	end
-    
+    tempList = Hash[tempList.sort]
+	
     for mcver, value in tempList
-		pm("Mods checked for " + color + blue + bold + mcver + color + bold + ": " + tempList[mcver].join(", "), dest)
+		pm("Mods checked for " + color + blue + bold + mcver.to_s + color + bold + " (" + tempList[mcver].length.to_s + "): " + tempList[mcver].join(", "), dest)
+		sleep(1)
 	end
 end
 
